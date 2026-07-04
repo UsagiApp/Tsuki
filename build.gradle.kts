@@ -5,7 +5,7 @@ plugins {
     alias(libs.plugins.kotlin.serialization)
 }
 
-group = "com.draken"
+group = "com.github.UsagiApp"
 version = "1.0.1"
 
 kotlin {
