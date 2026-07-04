@@ -1,27 +1,103 @@
-# Compiled class file
-*.class
+# User-specific stuff
+.idea/**/workspace.xml
+.idea/**/tasks.xml
+.idea/**/usage.statistics.xml
+.idea/**/dictionaries
+.idea/**/shelf
+.idea/**/copilot
 
-# Log file
-*.log
+# Generated files
+.idea/**/contentModel.xml
 
-# BlueJ files
-*.ctxt
+# Sensitive or high-churn files
+.idea/**/dataSources/
+.idea/**/dataSources.ids
+.idea/**/dataSources.local.xml
+.idea/**/sqlDataSources.xml
+.idea/**/dynamic.xml
+.idea/**/uiDesigner.xml
+.idea/**/dbnavigator.xml
+.idea/**/Project_Default.xml
 
-# Mobile Tools for Java (J2ME)
-.mtj.tmp/
+# Gradle
+.idea/**/gradle.xml
+.idea/**/libraries
 
-# Package Files #
-*.jar
-*.war
-*.nar
-*.ear
-*.zip
-*.tar.gz
-*.rar
+# Gradle and Maven with auto-import
+# When using Gradle or Maven with auto-import, you should exclude module files,
+# since they will be recreated, and may cause churn.  Uncomment if using
+# auto-import.
+.idea/deviceManager.xml
+.idea/.name
+.idea/artifacts
+.idea/compiler.xml
+.idea/jarRepositories.xml
+.idea/modules.xml
+.idea/ktlint-plugin.xml
+.idea/*.iml
+.idea/modules
+*.iml
+*.ipr
 
-# virtual machine crash logs, see http://www.java.com/en/download/help/error_hotspot.xml
-hs_err_pid*
-replay_pid*
+# CMake
+cmake-build-*/
 
-# Kotlin Gradle plugin data, see https://kotlinlang.org/docs/whatsnew20.html#new-directory-for-kotlin-data-in-gradle-projects
+# Mongo Explorer plugin
+.idea/**/mongoSettings.xml
+
+# File-based project format
+*.iws
+
+# IntelliJ
+out/
+
+# mpeltonen/sbt-idea plugin
+.idea_modules/
+
+# JIRA plugin
+atlassian-ide-plugin.xml
+
+# Cursive Clojure plugin
+.idea/replstate.xml
+
+# Crashlytics plugin (for Android Studio and IntelliJ)
+com_crashlytics_export_strings.xml
+crashlytics.properties
+crashlytics-build.properties
+fabric.properties
+
+# Editor-based Rest Client
+.idea/httpRequests
+
+# Android studio 3.1+ serialized cache file
+.idea/caches/build_file_checksums.ser
+
+.gradle/
+build/
+bin/
+
+.idea/**/misc.xml
+.idea/**/vcs.xml
+.idea/**/ktlint.xml
+.idea/codeStyles/
+.idea/kotlinc.xml
+
+src/test/resources/cookies.txt
 .kotlin/
+!/.idea/kotlin-statistics.xml
+
+.idea/**/discord.xml
+.idea/**/migrations.xml
+.idea/**/runConfigurations.xml
+.idea/**/AndroidProjectSystem.xml
+.idea/caches/deviceStreaming.xml
+/.idea/copilot.data.migration.agent.xml
+/.idea/copilot.data.migration.ask.xml
+/.idea/copilot.data.migration.ask2agent.xml
+/.idea/copilot.data.migration.edit.xml
+
+# Visual Studio Code
+.vscode/
+
+# Config file
+/local.properties
