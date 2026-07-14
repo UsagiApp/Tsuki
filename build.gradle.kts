@@ -5,8 +5,8 @@ plugins {
     alias(libs.plugins.kotlin.serialization)
 }
 
-group = "com.github.UsagiApp"
-version = "1.0.1"
+group = "com.draken"
+version = "1.0.2"
 
 kotlin {
     jvmToolchain(11)
@@ -50,7 +50,6 @@ dependencies {
     testImplementation(libs.junit.params)
     testRuntimeOnly(libs.junit.launcher)
     testImplementation(libs.kotlinx.coroutines.test)
-    testImplementation(libs.quickjs)
 }
 
 publishing {
