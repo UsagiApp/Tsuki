@@ -1,0 +1,1 @@
+-keep,allowoptimization class tsuki.** { public protected *; }
