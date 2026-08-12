@@ -38,7 +38,8 @@ public class OkHttpWebClient(
 	override suspend fun httpPost(url: HttpUrl, form: Map<String, String>, extraHeaders: Headers?): Response {
 		val body = FormBody.Builder()
 		form.forEach { (k, v) ->
-			body.addEncoded(k, v)
+			// Let OkHttp handle encoding of keys/values
+			body.add(k, v)
 		}
 		val request = Request.Builder()
 			.post(body.build())
@@ -49,17 +50,11 @@ public class OkHttpWebClient(
 	}
 
 	override suspend fun httpPost(url: HttpUrl, payload: String, extraHeaders: Headers?): Response {
-		val body = FormBody.Builder()
-		payload.split('&').forEach {
-			val pos = it.indexOf('=')
-			if (pos != -1) {
-				val k = it.substring(0, pos)
-				val v = it.substring(pos + 1)
-				body.addEncoded(k, v)
-			}
-		}
+		// Send raw x-www-form-urlencoded payload instead of reparsing it — preserves encoding
+		val mediaType = "application/x-www-form-urlencoded; charset=utf-8".toMediaType()
+		val requestBody = payload.toRequestBody(mediaType)
 		val request = Request.Builder()
-			.post(body.build())
+			.post(requestBody)
 			.url(url)
 			.addTags()
 			.addExtraHeaders(extraHeaders)
