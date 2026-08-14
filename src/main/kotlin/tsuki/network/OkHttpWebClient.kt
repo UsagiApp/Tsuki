@@ -1,8 +1,14 @@
 package tsuki.network
 
-import okhttp3.*
+import okhttp3.Headers
+import okhttp3.HttpUrl
+import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.RequestBody
 import okhttp3.RequestBody.Companion.toRequestBody
+import okhttp3.Response
 import org.json.JSONObject
 import org.jsoup.HttpStatusException
 import tsuki.exception.AuthRequiredException
@@ -51,9 +57,10 @@ public class OkHttpWebClient(
 	}
 
 	override suspend fun httpPost(url: HttpUrl, payload: String, extraHeaders: Headers?): Response {
-		val body = parseAndBuildFormBody(payload)
+		// Send raw x-www-form-urlencoded payload instead of reparsing it — preserves encoding
+		val requestBody = payload.toRequestBody(FORM_MEDIA_TYPE)
 		val request = Request.Builder()
-			.post(body)
+			.post(requestBody)
 			.url(url)
 			.addTags()
 			.addExtraHeaders(extraHeaders)
@@ -89,45 +96,17 @@ public class OkHttpWebClient(
 
 	/**
 	 * Builds a form body from a map of key-value pairs.
-	 * Uses addEncoded() to preserve pre-encoded values from the source.
+	 * Let OkHttp handle encoding of keys/values automatically.
 	 * 
 	 * @param form Map of form fields
 	 * @return Constructed FormBody
 	 */
 	private fun buildFormBody(form: Map<String, String>): RequestBody {
-		val bodyBuilder = FormBody.Builder()
+		val bodyBuilder = okhttp3.FormBody.Builder()
 		form.forEach { (k, v) ->
-			bodyBuilder.addEncoded(k, v)
+			// Let OkHttp handle encoding of keys/values
+			bodyBuilder.add(k, v)
 		}
-		return bodyBuilder.build()
-	}
-
-	/**
-	 * Parses a URL-encoded form string and builds a FormBody.
-	 * Handles edge cases like missing values or malformed entries gracefully.
-	 * 
-	 * For Android API 21+ compatibility, uses manual string splitting
-	 * instead of URLDecoder to avoid potential compatibility issues.
-	 * 
-	 * @param payload URL-encoded form string (e.g., "key1=value1&key2=value2")
-	 * @return Constructed FormBody
-	 */
-	private fun parseAndBuildFormBody(payload: String): RequestBody {
-		val bodyBuilder = FormBody.Builder()
-		
-		payload.split('&').forEach { pair ->
-			val separatorIndex = pair.indexOf('=')
-			if (separatorIndex > 0) { // Key must exist and not be empty
-				val k = pair.substring(0, separatorIndex)
-				val v = pair.substring(separatorIndex + 1)
-				bodyBuilder.addEncoded(k, v)
-			} else if (separatorIndex == 0) {
-				// Handle edge case: value without key (e.g., "=value")
-				bodyBuilder.addEncoded("", pair.substring(1))
-			}
-			// Skip entries without '=' separator
-		}
-		
 		return bodyBuilder.build()
 	}
 
@@ -155,7 +134,7 @@ public class OkHttpWebClient(
 	}
 
 	private fun Response.ensureSuccess(): Response {
-		val exception: Exception? = when (code) { // Catch some error codes, not all
+		val exception: Exception? = when (code) {
 			HttpURLConnection.HTTP_NOT_FOUND -> NotFoundException(message, request.url.toString())
 			HttpURLConnection.HTTP_UNAUTHORIZED -> request.tag(MangaSource::class.java)?.let {
 				AuthRequiredException(it)
