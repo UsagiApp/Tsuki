@@ -24,31 +24,50 @@ public class OkHttpWebClient(
 	}
 
 	override suspend fun httpGet(url: HttpUrl, extraHeaders: Headers?): Response {
-		val request = buildRequest(url, RequestMethod.GET, null, extraHeaders)
-		return httpClient.newCall(request).await().ensureSuccess()
+		val request = Request.Builder()
+			.get()
+			.url(url)
+			.addTags()
+			.addExtraHeaders(extraHeaders)
+		return httpClient.newCall(request.build()).await().ensureSuccess()
 	}
 
 	override suspend fun httpHead(url: HttpUrl): Response {
-		val request = buildRequest(url, RequestMethod.HEAD, null, null)
-		return httpClient.newCall(request).await().ensureSuccess()
+		val request = Request.Builder()
+			.head()
+			.url(url)
+			.addTags()
+		return httpClient.newCall(request.build()).await().ensureSuccess()
 	}
 
 	override suspend fun httpPost(url: HttpUrl, form: Map<String, String>, extraHeaders: Headers?): Response {
-		val requestBody = buildFormBody(form)
-		val request = buildRequest(url, RequestMethod.POST, requestBody, extraHeaders)
-		return httpClient.newCall(request).await().ensureSuccess()
+		val body = buildFormBody(form)
+		val request = Request.Builder()
+			.post(body)
+			.url(url)
+			.addTags()
+			.addExtraHeaders(extraHeaders)
+		return httpClient.newCall(request.build()).await().ensureSuccess()
 	}
 
 	override suspend fun httpPost(url: HttpUrl, payload: String, extraHeaders: Headers?): Response {
-		val requestBody = parseAndBuildFormBody(payload)
-		val request = buildRequest(url, RequestMethod.POST, requestBody, extraHeaders)
-		return httpClient.newCall(request).await().ensureSuccess()
+		val body = parseAndBuildFormBody(payload)
+		val request = Request.Builder()
+			.post(body)
+			.url(url)
+			.addTags()
+			.addExtraHeaders(extraHeaders)
+		return httpClient.newCall(request.build()).await().ensureSuccess()
 	}
 
 	override suspend fun httpPost(url: HttpUrl, body: JSONObject, extraHeaders: Headers?): Response {
 		val requestBody = body.toString().toRequestBody(JSON_MEDIA_TYPE)
-		val request = buildRequest(url, RequestMethod.POST, requestBody, extraHeaders)
-		return httpClient.newCall(request).await().ensureSuccess()
+		val request = Request.Builder()
+			.post(requestBody)
+			.url(url)
+			.addTags()
+			.addExtraHeaders(extraHeaders)
+		return httpClient.newCall(request.build()).await().ensureSuccess()
 	}
 
 	override suspend fun graphQLQuery(endpoint: String, query: String): JSONObject {
@@ -59,9 +78,11 @@ public class OkHttpWebClient(
 		}
 
 		val requestBody = body.toString().toRequestBody(JSON_MEDIA_TYPE)
-		val request = buildRequest(endpoint.toHttpUrl(), RequestMethod.POST, requestBody, null)
-		val json = httpClient.newCall(request).await().parseJson()
-		
+		val request = Request.Builder()
+			.post(requestBody)
+			.url(endpoint.toHttpUrl())
+			.addTags()
+		val json = httpClient.newCall(request.build()).await().parseJson()
 		validateGraphQLResponse(json)
 		return json
 	}
@@ -75,8 +96,8 @@ public class OkHttpWebClient(
 	 */
 	private fun buildFormBody(form: Map<String, String>): RequestBody {
 		val bodyBuilder = FormBody.Builder()
-		form.forEach { (key, value) ->
-			bodyBuilder.addEncoded(key, value)
+		form.forEach { (k, v) ->
+			bodyBuilder.addEncoded(k, v)
 		}
 		return bodyBuilder.build()
 	}
@@ -97,12 +118,11 @@ public class OkHttpWebClient(
 		payload.split('&').forEach { pair ->
 			val separatorIndex = pair.indexOf('=')
 			if (separatorIndex > 0) { // Key must exist and not be empty
-				val key = pair.substring(0, separatorIndex)
-				val value = pair.substring(separatorIndex + 1)
-				bodyBuilder.addEncoded(key, value)
+				val k = pair.substring(0, separatorIndex)
+				val v = pair.substring(separatorIndex + 1)
+				bodyBuilder.addEncoded(k, v)
 			} else if (separatorIndex == 0) {
 				// Handle edge case: value without key (e.g., "=value")
-				// Treat as empty key with value
 				bodyBuilder.addEncoded("", pair.substring(1))
 			}
 			// Skip entries without '=' separator
@@ -124,106 +144,34 @@ public class OkHttpWebClient(
 		}
 	}
 
-	/**
-	 * Builds a complete HTTP request with method, URL, body, and headers.
-	 * Centralizes request construction logic to ensure consistency and flexibility.
-	 * 
-	 * Supports GET, HEAD, and POST methods. Easy to extend for other methods
-	 * by adding to RequestMethod enum.
-	 * 
-	 * @param url Target URL
-	 * @param method HTTP method
-	 * @param body Request body (null for GET/HEAD)
-	 * @param extraHeaders Optional additional headers
-	 * @return Constructed Request
-	 */
-	private fun buildRequest(
-		url: HttpUrl,
-		method: RequestMethod,
-		body: RequestBody?,
-		extraHeaders: Headers?,
-	): Request {
-		val builder = Request.Builder()
-			.url(url)
-			.addTags()
-
-		when (method) {
-			RequestMethod.GET -> builder.get()
-			RequestMethod.HEAD -> builder.head()
-			RequestMethod.POST -> if (body != null) builder.post(body)
-		}
-
-		builder.addExtraHeaders(extraHeaders)
-		return builder.build()
-	}
-
-	/**
-	 * Adds MangaSource tag to request for tracking and filtering.
-	 * 
-	 * @return This builder for chaining
-	 */
 	private fun Request.Builder.addTags(): Request.Builder {
 		tag(MangaSource::class.java, mangaSource)
 		return this
 	}
 
-	/**
-	 * Adds extra headers to request if provided.
-	 * Uses null-safe let scope to avoid null checks.
-	 * 
-	 * @param headers Headers to add (nullable)
-	 * @return This builder for chaining
-	 */
 	private fun Request.Builder.addExtraHeaders(headers: Headers?): Request.Builder {
 		headers?.let { headers(it) }
 		return this
 	}
 
-	/**
-	 * Validates HTTP response status code and throws appropriate exceptions.
-	 * Handles 404 (Not Found), 401 (Unauthorized), and other 4xx/5xx errors.
-	 * Properly closes response and chains exceptions on failure.
-	 * 
-	 * API 21+ compatible error handling without Java 8+ features.
-	 * 
-	 * @return Response if successful
-	 * @throws NotFoundException for 404 responses
-	 * @throws AuthRequiredException for 401 responses
-	 * @throws HttpStatusException for other 4xx/5xx responses
-	 */
 	private fun Response.ensureSuccess(): Response {
-		val exception: Exception? = when (code) {
-			HttpURLConnection.HTTP_NOT_FOUND -> 
-				NotFoundException(message, request.url.toString())
-			
-			HttpURLConnection.HTTP_UNAUTHORIZED -> 
-				request.tag(MangaSource::class.java)?.let {
-					AuthRequiredException(it)
-				} ?: HttpStatusException(message, code, request.url.toString())
+		val exception: Exception? = when (code) { // Catch some error codes, not all
+			HttpURLConnection.HTTP_NOT_FOUND -> NotFoundException(message, request.url.toString())
+			HttpURLConnection.HTTP_UNAUTHORIZED -> request.tag(MangaSource::class.java)?.let {
+				AuthRequiredException(it)
+			} ?: HttpStatusException(message, code, request.url.toString())
 
-			in 400..599 -> 
-				HttpStatusException(message, code, request.url.toString())
-			
+			in 400..599 -> HttpStatusException(message, code, request.url.toString())
 			else -> null
 		}
-		
 		if (exception != null) {
 			runCatching {
 				close()
-			}.onFailure { closeException ->
-				exception.addSuppressed(closeException)
+			}.onFailure {
+				exception.addSuppressed(it)
 			}
 			throw exception
 		}
-		
 		return this
-	}
-
-	/**
-	 * HTTP request methods supported by this client.
-	 * Easily extendable for PUT, PATCH, DELETE if needed.
-	 */
-	private enum class RequestMethod {
-		GET, HEAD, POST
 	}
 }
