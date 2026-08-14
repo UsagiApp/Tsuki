@@ -1,8 +1,14 @@
 package tsuki.network
 
-import okhttp3.*
+import okhttp3.Headers
+import okhttp3.HttpUrl
+import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.RequestBody
 import okhttp3.RequestBody.Companion.toRequestBody
+import okhttp3.Response
 import org.json.JSONObject
 import org.jsoup.HttpStatusException
 import tsuki.exception.AuthRequiredException
@@ -17,6 +23,11 @@ public class OkHttpWebClient(
 	private val httpClient: OkHttpClient,
 	private val mangaSource: MangaSource,
 ) : WebClient {
+
+	companion object {
+		private val JSON_MEDIA_TYPE = "application/json; charset=utf-8".toMediaType()
+		private val FORM_MEDIA_TYPE = "application/x-www-form-urlencoded; charset=utf-8".toMediaType()
+	}
 
 	override suspend fun httpGet(url: HttpUrl, extraHeaders: Headers?): Response {
 		val request = Request.Builder()
@@ -36,30 +47,20 @@ public class OkHttpWebClient(
 	}
 
 	override suspend fun httpPost(url: HttpUrl, form: Map<String, String>, extraHeaders: Headers?): Response {
-		val body = FormBody.Builder()
-		form.forEach { (k, v) ->
-			body.addEncoded(k, v)
-		}
+		val body = buildFormBody(form)
 		val request = Request.Builder()
-			.post(body.build())
+			.post(body)
 			.url(url)
 			.addTags()
 			.addExtraHeaders(extraHeaders)
 		return httpClient.newCall(request.build()).await().ensureSuccess()
 	}
 
+	// Send raw x-www-form-urlencoded payload instead of reparsing it
 	override suspend fun httpPost(url: HttpUrl, payload: String, extraHeaders: Headers?): Response {
-		val body = FormBody.Builder()
-		payload.split('&').forEach {
-			val pos = it.indexOf('=')
-			if (pos != -1) {
-				val k = it.substring(0, pos)
-				val v = it.substring(pos + 1)
-				body.addEncoded(k, v)
-			}
-		}
+		val requestBody = payload.toRequestBody(FORM_MEDIA_TYPE)
 		val request = Request.Builder()
-			.post(body.build())
+			.post(requestBody)
 			.url(url)
 			.addTags()
 			.addExtraHeaders(extraHeaders)
@@ -67,8 +68,7 @@ public class OkHttpWebClient(
 	}
 
 	override suspend fun httpPost(url: HttpUrl, body: JSONObject, extraHeaders: Headers?): Response {
-		val mediaType = "application/json; charset=utf-8".toMediaType()
-		val requestBody = body.toString().toRequestBody(mediaType)
+		val requestBody = body.toString().toRequestBody(JSON_MEDIA_TYPE)
 		val request = Request.Builder()
 			.post(requestBody)
 			.url(url)
@@ -78,24 +78,49 @@ public class OkHttpWebClient(
 	}
 
 	override suspend fun graphQLQuery(endpoint: String, query: String): JSONObject {
-		val body = JSONObject()
-		body.put("operationName", null as Any?)
-		body.put("variables", JSONObject())
-		body.put("query", "{$query}")
+		val body = JSONObject().apply {
+			put("operationName", null as Any?)
+			put("variables", JSONObject())
+			put("query", "{$query}")
+		}
 
-		val mediaType = "application/json; charset=utf-8".toMediaType()
-		val requestBody = body.toString().toRequestBody(mediaType)
+		val requestBody = body.toString().toRequestBody(JSON_MEDIA_TYPE)
 		val request = Request.Builder()
 			.post(requestBody)
-			.url(endpoint)
+			.url(endpoint.toHttpUrl())
 			.addTags()
 		val json = httpClient.newCall(request.build()).await().parseJson()
-		json.optJSONArray("errors")?.let {
-			if (it.length() != 0) {
-				throw GraphQLException(it)
-			}
-		}
+		validateGraphQLResponse(json)
 		return json
+	}
+
+	/**
+	 * Builds a form body from a map of key-value pairs.
+	 * Let OkHttp handle encoding of keys/values automatically.
+	 * 
+	 * @param form Map of form fields
+	 * @return Constructed FormBody
+	 */
+	private fun buildFormBody(form: Map<String, String>): RequestBody {
+		val bodyBuilder = okhttp3.FormBody.Builder()
+		form.forEach { (k, v) ->
+			// Let OkHttp handle encoding of keys/values
+			bodyBuilder.add(k, v)
+		}
+		return bodyBuilder.build()
+	}
+
+	/**
+	 * Validates GraphQL response for errors.
+	 * Throws GraphQLException if errors array is present and non-empty.
+	 * 
+	 * @param json Response JSON object
+	 * @throws GraphQLException if errors are found
+	 */
+	private fun validateGraphQLResponse(json: JSONObject) {
+		json.optJSONArray("errors")?.takeIf { it.length() > 0 }?.let {
+			throw GraphQLException(it)
+		}
 	}
 
 	private fun Request.Builder.addTags(): Request.Builder {
@@ -104,14 +129,12 @@ public class OkHttpWebClient(
 	}
 
 	private fun Request.Builder.addExtraHeaders(headers: Headers?): Request.Builder {
-		if (headers != null) {
-			headers(headers)
-		}
+		headers?.let { headers(it) }
 		return this
 	}
 
 	private fun Response.ensureSuccess(): Response {
-		val exception: Exception? = when (code) { // Catch some error codes, not all
+		val exception: Exception? = when (code) {
 			HttpURLConnection.HTTP_NOT_FOUND -> NotFoundException(message, request.url.toString())
 			HttpURLConnection.HTTP_UNAUTHORIZED -> request.tag(MangaSource::class.java)?.let {
 				AuthRequiredException(it)
