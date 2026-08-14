@@ -56,8 +56,8 @@ public class OkHttpWebClient(
 		return httpClient.newCall(request.build()).await().ensureSuccess()
 	}
 
+	// Send raw x-www-form-urlencoded payload instead of reparsing it
 	override suspend fun httpPost(url: HttpUrl, payload: String, extraHeaders: Headers?): Response {
-		// Send raw x-www-form-urlencoded payload instead of reparsing it — preserves encoding
 		val requestBody = payload.toRequestBody(FORM_MEDIA_TYPE)
 		val request = Request.Builder()
 			.post(requestBody)
