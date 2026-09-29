@@ -34,4 +34,10 @@ public sealed class ConfigKey<T>(
 		public val presetValues: Map<String?, String?>,
 		override val defaultValue: String?,
 	) : ConfigKey<String?>("img_server")
+
+	public class UserInput(
+		key: String,
+	) : ConfigKey<String?>("input.$key") {
+		override val defaultValue: String? = null
+	}
 }
