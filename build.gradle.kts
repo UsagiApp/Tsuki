@@ -6,7 +6,7 @@ plugins {
 }
 
 group = "com.draken"
-version = "1.0.5"
+version = "1.0.6"
 
 kotlin {
     jvmToolchain(11)
