@@ -1,4 +1,5 @@
 @file:JvmName("StringUtils")
+@file:Suppress("unused")
 
 package tsuki.util
 
@@ -236,3 +237,7 @@ public fun StringBuilder.removeTrailingZero() {
 	}
 }
 
+public fun String.Companion.random(
+	length: Int,
+	pool: String = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789",
+): String = (1..length).map { pool.random() }.joinToString("")
