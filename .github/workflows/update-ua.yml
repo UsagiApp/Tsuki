@@ -31,7 +31,7 @@ jobs:
           newest() {
             v=$(jq -r --arg f "$2" --arg re "$3" '
               [.response.latest[].data[][$f] // empty | capture($re).v | split(".") | map(tonumber)]
-              | max | join(".")' "$API_JSON")
+              | max | join(".")' "$API")
             [[ $v =~ ^[0-9]+(\.[0-9]+)*$ ]]
             echo "$1=$v" >> "$GITHUB_ENV"
           }
