@@ -1,0 +1,66 @@
+name: Daily update for UserAgents object
+
+on:
+  schedule:
+    - cron: "0 0 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+    env:
+      FILE: src/main/kotlin/tsuki/network/UserAgents.kt
+      API: /tmp/useragents.json
+      MESSAGE: "chore(libs): update to latest User-Agents from API"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fetch latest data from UserAgents.me API 🌏
+        run: curl -fsSL --retry 3 https://useragents.me/api -o "$API"
+
+      - name: Find latest User-Agents from API result 💻
+        run: |
+          newest() {
+            v=$(jq -r --arg f "$2" --arg re "$3" '
+              [.response.latest[].data[][$f] // empty | capture($re).v | split(".") | map(tonumber)]
+              | max | join(".")' "$API_JSON")
+            [[ $v =~ ^[0-9]+(\.[0-9]+)*$ ]]
+            echo "$1=$v" >> "$GITHUB_ENV"
+          }
+          newest CHROME_VERSION     browser   '^Chrome Mobile (?<v>[0-9]+(?:\.[0-9]+){3})$'
+          newest FIREFOX_VERSION    browser   '^Firefox (?:Mobile )?(?<v>[0-9.]+)$'
+          newest ANDROID_VERSION    os        '^Android (?<v>[0-9.]+)$'
+          newest WINDOWS_NT_VERSION useragent 'Windows NT (?<v>[0-9]+\.[0-9]+)'
+
+      - name: Update UserAgents object 💻
+        run: |
+          set_ua() {
+            NAME=$1 UA=$2 perl -0pi -e 's/(const val \Q$ENV{NAME}\E: String =\s*")[^"]*(")/${1}$ENV{UA}${2}/' "$FILE"
+            grep -qF "$2" "$FILE"
+          }
+          WEBKIT='AppleWebKit/537.36 (KHTML, like Gecko)'
+          set_ua CHROME_MOBILE   "Mozilla/5.0 (Linux; Android $ANDROID_VERSION) $WEBKIT Chrome/$CHROME_VERSION Mobile Safari/537.36"
+          set_ua FIREFOX_MOBILE  "Mozilla/5.0 (Android $ANDROID_VERSION; Mobile; LG-M255; rv:$FIREFOX_VERSION) Gecko/$FIREFOX_VERSION Firefox/$FIREFOX_VERSION"
+          set_ua CHROME_DESKTOP  "Mozilla/5.0 (X11; Linux x86_64) $WEBKIT Chrome/$CHROME_VERSION Safari/537.36"
+          set_ua FIREFOX_DESKTOP "Mozilla/5.0 (X11; Linux x86_64; rv:$FIREFOX_VERSION) Gecko/20100101 Firefox/$FIREFOX_VERSION"
+          set_ua CHROME_WINDOWS  "Mozilla/5.0 (Windows NT $WINDOWS_NT_VERSION; Win64; x64) $WEBKIT Chrome/$CHROME_VERSION Safari/537.36"
+          set_ua FIREFOX_WINDOWS "Mozilla/5.0 (Windows NT $WINDOWS_NT_VERSION; Win64; x64; rv:$FIREFOX_VERSION) Gecko/20100101 Firefox/$FIREFOX_VERSION"
+
+      - name: Commit & Push changes 🚀
+        uses: peter-evans/create-pull-request@v7
+        with:
+          base: master
+          branch: bot/update-user-agents
+          delete-branch: true
+          add-paths: ${{ env.FILE }}
+          commit-message: ${{ env.MESSAGE }}
+          title: ${{ env.MESSAGE }}
+          body: Automatic daily updates from https://useragents.me/api by [this GitHub workflow](https://github.com/UsagiApp/Tsuki/blob/master/.github/workflows/update-ua.yml)
