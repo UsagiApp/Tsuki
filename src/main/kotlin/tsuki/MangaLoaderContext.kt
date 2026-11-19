@@ -84,6 +84,6 @@ public abstract class MangaLoaderContext {
 	 */
 	public open suspend fun interceptWebViewRequests(
 		url: String,
-		config: InterceptionConfig,
+		config: InterceptionConfig = InterceptionConfig(),
 	): List<InterceptedRequest> = emptyList()
 }
