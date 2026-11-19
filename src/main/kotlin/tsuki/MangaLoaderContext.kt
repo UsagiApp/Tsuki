@@ -9,6 +9,8 @@ import tsuki.bitmap.Bitmap
 import tsuki.config.MangaSourceConfig
 import tsuki.model.MangaSource
 import tsuki.util.LinkResolver
+import tsuki.webview.InterceptedRequest
+import tsuki.webview.InterceptionConfig
 import java.util.*
 
 public abstract class MangaLoaderContext {
@@ -76,4 +78,12 @@ public abstract class MangaLoaderContext {
 		width: Int,
 		height: Int,
 	): Bitmap
+
+	/**
+	 * Load [url] in a WebView and collect requests matching [config]
+	 */
+	public open suspend fun interceptWebViewRequests(
+		url: String,
+		config: InterceptionConfig,
+	): List<InterceptedRequest> = emptyList()
 }
